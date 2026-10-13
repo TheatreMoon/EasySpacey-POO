@@ -1,4 +1,5 @@
 # Vista de consola y visualización de las tres mejores distribuciones.
+import math
 import matplotlib.pyplot as blt
 from matplotlib.patches import Patch, Rectangle
 from distribucion import Distribucion
@@ -27,8 +28,9 @@ class Vista:
         while True:
             try:
                 number = float(input(prompt))
-                if number > 0:
+                if math.isfinite(number) and number > 0:
                     return number
+                
                 self.mostrar_error("El número debe ser mayor que cero.")
                 #except es el exception
             except ValueError:
@@ -415,7 +417,16 @@ class Vista:
     # EJECUCIÓN PRINCIPAL
     # =====================================================
     # Coordina el flujo principal de EasySpacey.
+    
+    # Mantiene el menú disponible después de terminar cada operación.
     def ejecutar(self):
+        while True:
+            continuar = self.ejecutar_proyecto()
+
+            if continuar is False:
+                break
+    
+    def ejecutar_proyecto(self):
         opcion = self.menu_inicial()
         # -----------------------------
         # SALIR
@@ -424,7 +435,7 @@ class Vista:
             self.mostrar_mensaje(
                 "Hasta luego."
             )
-            return
+            return False
         # -----------------------------
         # NUEVO PROYECTO
         # -----------------------------
@@ -448,9 +459,7 @@ class Vista:
                     f"mueble(s) agregado(s) "
                     f"correctamente."
                 )
-            self.solicitar_guardar_proyecto(
-                room
-            )
+            
         # -----------------------------
         # CARGAR PROYECTO
         # -----------------------------
@@ -469,6 +478,20 @@ class Vista:
                 f"'{room.get_nombre()}' "
                 f"cargado correctamente."
             )
+
+                    # Comprueba el espacio antes de intentar distribuir los muebles.
+        if not Distribucion.verificar_espacio(room):
+            self.mostrar_error(
+                "Los muebles no caben en la habitación según "
+                "las dimensiones o la superficie disponible."
+            )
+            return
+
+        # Permite guardar el proyecto después de comprobar el espacio.
+        if opcion == "1":
+            self.solicitar_guardar_proyecto(room)
+
+            
         # -----------------------------
         # HABITACIÓN VACÍA
         # -----------------------------

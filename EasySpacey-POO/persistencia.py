@@ -1,4 +1,6 @@
+
 import json
+from math import isfinite
 
 #Persistencia de datos, guardando y recuperando datos con archivos JSON
 #Funciona cambiando los objetos a diccionarios y listas
@@ -10,6 +12,19 @@ import json
 from habitacion import Habitacion
 from mueble import Mueble
 from punto3d import Punto3D
+
+
+# Validar números y dimensiones
+
+def validar_numero_positivo(numero):
+    #Verifica que sea un número positivo y finito
+    if isinstance(numero, bool) or not isinstance(numero, (int, float)):
+        raise ValueError("El valor debe ser numerico.")
+
+    if not isfinite(numero) or numero <= 0:
+        raise ValueError("La dimension debe ser mayor que cero.")
+
+    return True
 
 
 # Convertir a Diccionarios (cada uno)
@@ -55,23 +70,47 @@ def habitacion_a_diccionario(habitacion):
 def guardar_proyecto(habitacion, nombre_archivo):
     #Guarda los datos en un archivo JSON, con habitación y nombre de archivo.
     #W permite crear o sobreescribir el archivo
-    datos = habitacion_a_diccionario(habitacion)
+    try:
+        datos = habitacion_a_diccionario(habitacion)
 
-    #Abrir el archivo y escribir los datos
-    with open(nombre_archivo, "w", encoding="utf-8") as archivo:
-        json.dump(
-            datos,
-            archivo,
-            indent=4,
-            ensure_ascii=False
-        )
+        #Validar los datos antes de guardarlos
+        diccionario_a_habitacion(datos)
 
-    print(f"Proyecto guardado correctamente en: {nombre_archivo}")
+        #Abrir el archivo y escribir los datos
+        with open(nombre_archivo, "w", encoding="utf-8") as archivo:
+            json.dump(
+                datos,
+                archivo,
+                indent=4,
+                ensure_ascii=False,
+                allow_nan=False
+            )
+
+        print(f"Proyecto guardado correctamente en: {nombre_archivo}")
+        return True
+
+    #Controlar errores de escritura o datos incorrectos
+    except (OSError, ValueError, TypeError, KeyError) as error:
+        print(f"Error al guardar el proyecto: {error}")
+        return False
 
 
 # De diccionarios a objetos
 
 def diccionario_a_punto(datos):
+    #Verificar que las coordenadas sean válidas
+    if not isinstance(datos, dict):
+        raise ValueError("La posicion debe ser un diccionario.")
+
+    for eje in ("x", "y", "z"):
+        valor = datos[eje]
+
+        if isinstance(valor, bool) or not isinstance(valor, (int, float)):
+            raise ValueError("Las coordenadas deben ser numericas.")
+
+        if not isfinite(valor):
+            raise ValueError("Las coordenadas deben ser finitas.")
+
     return Punto3D(
         datos["x"],
         datos["y"],
@@ -81,6 +120,27 @@ def diccionario_a_punto(datos):
 
 def diccionario_a_mueble(datos):
     #Reconstruir muebles
+    if not isinstance(datos, dict):
+        raise ValueError("Los datos del mueble deben ser un diccionario.")
+
+    #Verificar las dimensiones del mueble
+    validar_numero_positivo(datos["ancho"])
+    validar_numero_positivo(datos["largo"])
+    validar_numero_positivo(datos["alto"])
+
+    #Verificar la utilidad entre 1 y 10
+    utilidad = datos["utilidad"]
+
+    if type(utilidad) is not int or not 1 <= utilidad <= 10:
+        raise ValueError("La utilidad debe ser un entero entre 1 y 10.")
+
+    #Verificar nombre y uso del mueble
+    if not isinstance(datos["nombre"], str) or not datos["nombre"].strip():
+        raise ValueError("El nombre del mueble no es valido.")
+
+    if not isinstance(datos["uso"], str) or not datos["uso"].strip():
+        raise ValueError("El uso del mueble no es valido.")
+
     posicion = diccionario_a_punto(datos["posicion"])
 
     return Mueble(
@@ -96,6 +156,22 @@ def diccionario_a_mueble(datos):
 
 def diccionario_a_habitacion(datos):
     #Crea una habitación vacía
+    if not isinstance(datos, dict):
+        raise ValueError("Los datos de la habitacion deben ser un diccionario.")
+
+    #Verificar las dimensiones de la habitacion
+    validar_numero_positivo(datos["ancho"])
+    validar_numero_positivo(datos["largo"])
+    validar_numero_positivo(datos["alto"])
+
+    #Verificar el nombre de la habitacion
+    if not isinstance(datos["nombre"], str) or not datos["nombre"].strip():
+        raise ValueError("El nombre de la habitacion no es valido.")
+
+    #Verificar que muebles sea una lista
+    if not isinstance(datos["muebles"], list):
+        raise ValueError("Los muebles deben estar en una lista.")
+
     habitacion = Habitacion(
         datos["nombre"],
         datos["ancho"],
@@ -120,7 +196,7 @@ def cargar_proyecto(nombre_archivo):
         with open(nombre_archivo, "r", encoding="utf-8") as archivo:
             datos = json.load(archivo)
 
-            #Reconstruir los objetos EasySpacey
+        #Reconstruir los objetos EasySpacey
         habitacion = diccionario_a_habitacion(datos)
 
         print(f"Proyecto cargado correctamente desde: {nombre_archivo}")
@@ -135,6 +211,16 @@ def cargar_proyecto(nombre_archivo):
     #O que no cumpla con el formato
     except json.JSONDecodeError:
         print("Error: El archivo JSON no tiene un formato valido.")
+        return None
+
+    #O que falten datos obligatorios
+    except (KeyError, TypeError, ValueError) as error:
+        print(f"Error: Los datos del proyecto no son validos: {error}")
+        return None
+
+    #O que exista un problema al leer el archivo
+    except (OSError, UnicodeError) as error:
+        print(f"Error al leer el archivo: {error}")
         return None
 
 

@@ -81,6 +81,29 @@ class Distribucion:
         self.valida = all_inside and not self.tiene_colisiones()
         return self.valida
 
+        # Comprueba si existen impedimentos evidentes para colocar los muebles.
+    @staticmethod
+    def verificar_espacio(habitacion):
+        muebles = habitacion.get_muebles()
+
+        superficie_habitacion = habitacion.ancho * habitacion.largo
+        superficie_muebles = 0
+
+        for mueble in muebles:
+            if (
+                mueble.ancho > habitacion.ancho
+                or mueble.largo > habitacion.largo
+                or mueble.alto > habitacion.alto
+            ):
+                return False
+
+            superficie_muebles += mueble.ancho * mueble.largo
+
+        if superficie_muebles > superficie_habitacion:
+            return False
+
+        return True
+
     def colocar_muebles(self, attempts_per_item=250, random_generator=None):
         random_generator = random_generator or Random()
         placed_furniture = []
@@ -215,6 +238,26 @@ class Distribucion:
         self.puntaje = round(score, 2)
         return self.puntaje
 
+    # Identifica una configuración por mueble y coordenadas.
+    def obtener_firma(self):
+        return tuple(sorted(
+            (m.nombre, round(m.posicion.x, 2), round(m.posicion.y, 2),
+             round(m.posicion.z, 2)) for m in self.muebles
+        ))
+
+    # Exige un desplazamiento visible de al menos un mueble.
+    def es_diferente_de(self, otra, distancia_minima=0.5):
+        if self.obtener_firma() == otra.obtener_firma():
+            return False
+        posiciones = {m.nombre: m.posicion for m in otra.muebles}
+        if set(posiciones) != {m.nombre for m in self.muebles}:
+            return True
+        return any(
+            hypot(m.posicion.x - posiciones[m.nombre].x,
+                  m.posicion.y - posiciones[m.nombre].y) >= distancia_minima
+            for m in self.muebles
+        )
+
     @classmethod
     def generar_distribuciones(
         cls,
@@ -222,19 +265,28 @@ class Distribucion:
         amount=100,
         attempts_per_item=250,
         seed=None,
+        distancia_minima=0.5,
+        limite_resultados=3,
     ):
-        if amount <= 0:
+        if amount <= 0 or limite_resultados <= 0 or distancia_minima < 0:
             return []
 
         random_generator = Random(seed)
-        results = []
+        candidates = []
         for _ in range(amount):
             alternative = cls(room)
             if alternative.colocar_muebles(attempts_per_item, random_generator):
                 alternative.calcular_puntaje()
-                results.append(alternative)
+                candidates.append(alternative)
 
-        results.sort(key=lambda distribution: distribution.get_puntaje(), reverse=True)
+        candidates.sort(key=lambda d: d.get_puntaje(), reverse=True)
+        results = []
+        for candidate in candidates:
+            if all(candidate.es_diferente_de(other, distancia_minima)
+                   for other in results):
+                results.append(candidate)
+                if len(results) >= limite_resultados:
+                    break
         return results
 
     @staticmethod
@@ -250,3 +302,4 @@ class Distribucion:
                 f"Posición: {furniture.posicion}"
             )
         return "\n".join(lines)
+
