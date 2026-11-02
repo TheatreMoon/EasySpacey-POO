@@ -173,16 +173,26 @@ class Distribucion:
         self.muebles.sort(key=lambda item: item.calcular_volumen(), reverse=True)
 
         for furniture in self.muebles:
-            max_x = self.habitacion.ancho - furniture.ancho
-            max_y = self.habitacion.largo - furniture.largo
-            if max_x < 0 or max_y < 0 or furniture.alto > self.habitacion.alto:
-                self.valida = False
-                return False
+            # Prueba 0 y 90 grados solo si el mueble permite rotacion.
+            original_rotation = furniture.get_rotacion()
+            orientations = [original_rotation]
+            if furniture.puede_rotar() and furniture.ancho != furniture.largo:
+                orientations.append(90 if original_rotation == 0 else 0)
 
-            # Explora bordes y posiciones aleatorias en orden variable.
-            modes = list(range(5))
+            # Mezcla las orientaciones para no favorecer siempre la original.
+            random_generator.shuffle(orientations)
             valid_positions = []
+            modes = list(range(5))
+
+            # Mantiene el limite total de intentos por mueble.
             for attempt in range(attempts_per_item):
+                orientation = orientations[attempt % len(orientations)]
+                furniture.set_rotacion(orientation)
+                max_x = self.habitacion.ancho - furniture.ancho
+                max_y = self.habitacion.largo - furniture.largo
+                if max_x < 0 or max_y < 0 or furniture.alto > self.habitacion.alto:
+                    continue
+
                 if attempt % len(modes) == 0:
                     random_generator.shuffle(modes)
                 mode = modes[attempt % len(modes)]
@@ -203,7 +213,6 @@ class Distribucion:
                 if has_collision or self.overlaps_restrictions(furniture):
                     continue
 
-                # Guarda varias posiciones válidas antes de elegir una.
                 if restrictions:
                     clearance = min(
                         self._distancia_restriccion(furniture, restriction)
@@ -211,21 +220,23 @@ class Distribucion:
                     )
                 else:
                     clearance = 0.0
-                valid_positions.append((clearance, furniture.posicion.x, furniture.posicion.y))
+                valid_positions.append((clearance, x_cm / 100, y_cm / 100, orientation))
                 if len(valid_positions) >= 8:
                     break
 
             if not valid_positions:
+                furniture.set_rotacion(original_rotation)
                 self.valida = False
                 return False
 
-            # Con restricciones, prefiere separación; sin ellas, elige al azar.
+            # Con restricciones, prefiere separacion; sin ellas, elige al azar.
             if restrictions:
                 best_clearance = max(item[0] for item in valid_positions)
                 choices = [item for item in valid_positions if item[0] >= best_clearance - 1e-9]
             else:
                 choices = valid_positions
-            _, x, y = random_generator.choice(choices)
+            _, x, y, orientation = random_generator.choice(choices)
+            furniture.set_rotacion(orientation)
             furniture.set_posicion(Punto3D(x, y, 0.0))
             placed_furniture.append(furniture)
 
@@ -378,7 +389,7 @@ class Distribucion:
     def obtener_firma(self):
         return tuple(sorted(
             (m.nombre, round(m.posicion.x, 2), round(m.posicion.y, 2),
-             round(m.posicion.z, 2)) for m in self.muebles
+             round(m.posicion.z, 2), m.get_rotacion()) for m in self.muebles
         ))
 
     # Calcula el desplazamiento promedio de los muebles entre dos alternativas.
@@ -398,7 +409,15 @@ class Distribucion:
     def es_diferente_de(self, otra, distancia_minima=0.5):
         if self.obtener_firma() == otra.obtener_firma():
             return False
-        return self.distancia_promedio(otra) >= distancia_minima
+        if self.distancia_promedio(otra) >= distancia_minima:
+            return True
+        # Una rotacion de un rectangulo tambien representa una alternativa distinta.
+        orientaciones = {m.nombre: m.get_rotacion() for m in otra.muebles}
+        return any(
+            m.nombre in orientaciones and m.ancho != m.largo
+            and m.get_rotacion() != orientaciones[m.nombre]
+            for m in self.muebles
+        )
 
     @classmethod
     # Genera candidatos y selecciona alternativas validas y variadas.

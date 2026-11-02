@@ -234,6 +234,12 @@ class TkinterInterface:
         # Registra conexiones para equipos ubicados sobre el mueble.
         # Usa una etiqueta corta para evitar que el texto se corte.
         self._entry(furniture_box, "furniture_connections", "Conexiones eléctricas", 4, 0)
+        # Permite decidir si el algoritmo puede girar este tipo de mueble.
+        self.furniture_rotation = tk.BooleanVar(value=True)
+        ttk.Checkbutton(
+            furniture_box, text="Permitir rotación automática (0° / 90°)",
+            variable=self.furniture_rotation
+        ).grid(row=4, column=1, sticky="w", padx=4, pady=3)
         ttk.Label(furniture_box, text="Opcional: deje vacío si no necesita electricidad (0).",
                   style="Card.TLabel", wraplength=335, justify="left").grid(
                       row=5, column=0, columnspan=2, sticky="w", padx=4, pady=(0, 3))
@@ -471,7 +477,9 @@ class TkinterInterface:
             for number in range(1, quantity + 1):
                 item_name = name if quantity == 1 else f"{name} {number}"
                 self.room.agregar_mueble(
-                    Mueble(item_name, *dimensions, utility, Punto3D(0, 0, 0), use, conexiones_necesarias=connections)
+                    Mueble(item_name, *dimensions, utility, Punto3D(0, 0, 0), use,
+                           conexiones_necesarias=connections,
+                           permite_rotacion=self.furniture_rotation.get())
                 )
             self._invalidate_distributions()
             self._clear_entries(
@@ -479,6 +487,7 @@ class TkinterInterface:
                 "furniture_height", "furniture_utility", "furniture_quantity", "furniture_connections"
             )
             self.furniture_use.set("")
+            self.furniture_rotation.set(True)
             self._refresh_lists()
             self._draw_preview()
             self._set_status(f"Se agregaron {quantity} mueble(s). {self._electrical_warning()}")
@@ -704,7 +713,8 @@ class TkinterInterface:
         outlets = self.room.get_outlets() if self.room else []
         self._populate_list(
             self.furniture_list, furniture,
-            lambda item: f"{item.nombre}\n{item.uso} · {item.ancho:g} × {item.largo:g} m",
+            lambda item: (f"{item.nombre}\n{item.uso} · {item.ancho:g} × {item.largo:g} m"
+                          f" · Rotación {'sí' if item.puede_rotar() else 'no'}"),
             self._delete_furniture, "No hay muebles agregados."
         )
         self._populate_list(
@@ -976,7 +986,7 @@ class TkinterInterface:
             canvas.create_text(
                 origin_x + (item.posicion.x + item.ancho / 2) * scale,
                 origin_y + (item.posicion.y + item.largo / 2) * scale,
-                text=item.nombre, fill="#FFFFFF", font=("Segoe UI", 8, "bold"),
+                text=f"{item.nombre}\n{item.get_rotacion()}°", fill="#FFFFFF", font=("Segoe UI", 8, "bold"),
                 width=max(item.ancho * scale - 6, 25)
             )
 

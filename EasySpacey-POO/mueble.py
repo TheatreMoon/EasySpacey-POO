@@ -15,6 +15,8 @@ class Mueble:
         posicion, #Coordenadas. Este es un punto
         uso = "Algo", #Funcionamiento
         conexiones_necesarias=0,
+        permite_rotacion=True,
+        rotacion=0,
     ):
         self.nombre = nombre
         #características principales, ahora iniciadas
@@ -26,6 +28,12 @@ class Mueble:
         self.uso = uso
         # Necesidades electricas propuestas conjuntamente por Raul y Dominic.
         self.set_conexiones_necesarias(conexiones_necesarias)
+        # Permite o bloquea la rotacion automatica de este mueble.
+        if type(permite_rotacion) is not bool:
+            raise ValueError("Permite rotacion debe ser True o False.")
+        self.permite_rotacion = permite_rotacion
+        self.rotacion = 0
+        self.set_rotacion(rotacion)
 
     def calcular_volumen(self):
         return self.ancho * self.largo * self.alto
@@ -75,6 +83,32 @@ class Mueble:
     # Indica si el mueble necesita electricidad.
     def requiere_electricidad(self):
         return self.conexiones_necesarias > 0
+
+    # Indica si el algoritmo puede girar este mueble.
+    def puede_rotar(self):
+        return self.permite_rotacion
+
+    # Cambia el permiso de rotacion sin modificar su orientacion actual.
+    def set_permite_rotacion(self, permitido):
+        if type(permitido) is not bool:
+            raise ValueError("Permite rotacion debe ser True o False.")
+        self.permite_rotacion = permitido
+
+    # Devuelve la orientacion actual del mueble.
+    def get_rotacion(self):
+        return self.rotacion
+
+    # Fija la orientacion sin acumular giros al repetir la llamada.
+    def set_rotacion(self, grados):
+        if type(grados) is not int or grados not in (0, 90):
+            raise ValueError("La rotacion debe ser 0 o 90 grados.")
+        if grados != self.rotacion:
+            self.ancho, self.largo = self.largo, self.ancho
+            self.rotacion = grados
+
+    # Alterna entre las orientaciones horizontal y vertical.
+    def rotar(self):
+        self.set_rotacion(90 if self.rotacion == 0 else 0)
 
     def __str__(self):
         #representación textual del mueble

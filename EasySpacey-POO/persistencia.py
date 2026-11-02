@@ -49,7 +49,10 @@ def mueble_a_diccionario(mueble):
         "uso": mueble.uso,
         "posicion": punto_a_diccionario(mueble.posicion),
         # Guarda las conexiones electricas del mueble.
-        "conexiones_necesarias": mueble.get_conexiones_necesarias()
+        "conexiones_necesarias": mueble.get_conexiones_necesarias(),
+        # Conserva la orientacion y el permiso de rotacion del mueble.
+        "rotacion": mueble.get_rotacion(),
+        "permite_rotacion": mueble.puede_rotar()
     }
 
 
@@ -185,15 +188,30 @@ def diccionario_a_mueble(datos):
     # Los proyectos antiguos utilizan cero conexiones por defecto.
     conexiones = datos.get("conexiones_necesarias", 0)
 
+    # Las dimensiones del JSON ya corresponden a la orientacion guardada.
+    # Se crea a 0 grados y luego se intercambian las medidas solo si hace falta.
+    rotacion = datos.get("rotacion", 0)
+    permite_rotacion = datos.get("permite_rotacion", True)
+    if type(rotacion) is not int or rotacion not in (0, 90):
+        raise ValueError("La rotacion debe ser 0 o 90 grados.")
+    if type(permite_rotacion) is not bool:
+        raise ValueError("Permite rotacion debe ser True o False.")
+
+    # Recupera las dimensiones originales para evitar un segundo giro.
+    ancho_original = datos["largo"] if rotacion == 90 else datos["ancho"]
+    largo_original = datos["ancho"] if rotacion == 90 else datos["largo"]
+
     return Mueble(
         datos["nombre"],
-        datos["ancho"],
-        datos["largo"],
+        ancho_original,
+        largo_original,
         datos["alto"],
         datos["utilidad"],
         posicion,
         datos["uso"],
-        conexiones_necesarias=conexiones
+        conexiones_necesarias=conexiones,
+        permite_rotacion=permite_rotacion,
+        rotacion=rotacion
     )
 
 
