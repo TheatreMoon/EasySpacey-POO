@@ -360,16 +360,10 @@ class TkinterInterface:
         self.outlet_list = ScrollableList(self.list_panel)
         self.outlet_list.grid(row=5, column=0, sticky="nsew")
 
-    # Convierte texto a un número positivo o lanza ValueError.
+    # Valida dimensiones positivas con precision maxima de un centimetro.
     @staticmethod
     def _positive(text, field_name):
-        try:
-            value = float(text)
-        except ValueError as error:
-            raise ValueError(f"{field_name} debe ser numérico.") from error
-        if value <= 0:
-            raise ValueError(f"{field_name} debe ser mayor que cero.")
-        return value
+        return TkinterInterface._centimeters(text, field_name)
 
     # Valida medidas en centimetros enteros sin redondear entradas invalidas.
     @staticmethod
